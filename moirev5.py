@@ -320,6 +320,7 @@ def generate(a,d,vec,interlayerNNnumber,interlayerNNdistance,offsetamount=0.0,pl
                
     def plothopmap(hopstoplot):
         fig=plt.figure()
+
         plotbase(fig)
         
         for hop in hopstoplot:
@@ -355,7 +356,8 @@ def generate(a,d,vec,interlayerNNnumber,interlayerNNdistance,offsetamount=0.0,pl
                 
                 if not (dx == 0.0 and dy == 0.0):
                     plt.arrow(depx,depy,dx,dy,width=normalwidth,length_includes_head=True,alpha=0.2)
-            
+        plt.xlim(-0.2*uc_size_x,1.2*uc_size_x)
+        plt.ylim(-0.2*uc_size_y,1.2*uc_size_y)
 
     if plothoppingmaps:
         plothopmap(hops1)
