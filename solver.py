@@ -17,7 +17,7 @@ import matplotlib.pyplot as plt
 from numpy import linalg as LA
 import os,sys
 from moirev5 import generate,updiag
-#from moirev4gs_NN import generate,updiag
+
 import functions
 import multiprocessing
 import gc
