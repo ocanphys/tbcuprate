@@ -22,6 +22,33 @@ import multiprocessing
 import gc
 import time
 
+#################################################################
+#################################################################
+############ A V A I L A B L E     F U N C T I O N S ############
+#################################################################
+#################################################################
+# Once self consistent calculation is run and we obtain the resulting
+# superconducting order parameters (or preload them from an earlier
+# calculation) the following functions are available:
+# 
+###### ComputeChern(M) 
+# will compute the Chern number where M^2 is the number of k-points
+# for that specific calculation.
+# M > 200 recommended.
+#
+#
+###### ComputeMinGap()
+# computes the minimum energy excitation gap. This function follows
+# a refining algorithm which zooms in to smaller and smaller regions
+# of the BZ near the Dirac cones where the gap opens to get a more
+# accurate value of the gap as we are using a discrete lattice.
+#
+###### PlotSpectrum(M,plottype)
+# plots the lowest bands (near zero energy) in 2D or 3D plot.
+# M is again the size of the BZ k-mesh and plottype should be 
+# a string "2D" or "3D" accordingly.
+#
+# example: PlotSpectrum(200,"2D")
 ##################################################################
 ##################################################################
 ################ M O D E L    P A R A M E T E R S ################
@@ -39,14 +66,20 @@ g_0=0.02 # interlayer coupling energy scale
 offsetlayers=0.0 # offsets the second layer from the rotation center
 a=1.0 ##lattice spacing (Cu-O square lattice) - unit length
 d=2.22 ##interlayer distance - in units of a
-interlayer_closest_neighbors=300 #pick something large - takes at least 10 closest neighbors. but we keep only ones within the max distance defined in the next line
-max_interlayer_in_plane=7.8 #max in_plane_interlayer distance - in units of a - lattice spacing.
+interlayer_closest_neighbors=300 #when generating the interlayer terms
+#this parameter determines the number of closest neighbors to a lattice
+#site. We pick a large number for this as the coupling strength (according
+# to our model) decreases exponentially with distance.
+max_interlayer_in_plane=7.8 # maximum range (in unit length a - latice spacing)
+# for interlayer terms. 
 
 ##################################################################
 ##################################################################
 ######################### M E T H O D S ##########################
 ##################################################################
 ##################################################################
+
+M=40 # specifies the BZ mesh - (M x M k-point grid) 
 
 plot_op_iterations = True # visual for iterations and tracking convergence.
 # it shows the value of each order parameter living in bonds between
@@ -58,7 +91,6 @@ plot_op_iterations = True # visual for iterations and tracking convergence.
 
 saveresults=True  # saves self consistent calculation results in disk.
 plot_hop_map=False # visualizes the hoppings in the tight binding model.
-M=40 # specifies the BZ mesh - (M x M k-point grid) 
 USEPREVCALCS=True # if results from earlier calculation has been saved, 
                   # code will load these insted of the ansatz - allows
                   # more iterations.
