@@ -1,4 +1,4 @@
-# TRSB Twister Bilayer Cuprate Superconductor
+# TRSB Twisted Bilayer Cuprate Topological Superconductor
 
 This code generates the Hamiltonian and solves the self consistent gap equation to find the superconducting order parameter for a generic commensurate twist.
 
