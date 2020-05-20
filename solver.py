@@ -5,9 +5,7 @@ Created on Fri Nov 22 08:43:27 2019
 
 @author: ocan
 """
-
-ONCLUSTER=False
-USEPREVCALCS=True
+ONCLUSTER=False  ## enable this only for cluster use
 
 import numpy as np
 import matplotlib
@@ -17,57 +15,95 @@ import matplotlib.pyplot as plt
 from numpy import linalg as LA
 import os,sys
 from moirev5 import generate,updiag
-
+from chern import ChernNumber
+from buildHBdG import diag_H_BdG
 import functions
 import multiprocessing
 import gc
 import time
 
+##################################################################
+##################################################################
+################ M O D E L    P A R A M E T E R S ################
+##################################################################
+##################################################################
+
+Temperature=0.01 # Kelvins
+vec=[1,2]  #[0,1] for no twist
+t=.153 # NN hopping in plane
+tprime=-0.45*t # NNN hopping in plane
+mu=-1.3*t # chemical potential chosen near optimal doping
+V=0.146 # attractive pairing potential, adjusted so that 40meV 
+        # maximal gap is obtained when there is no interlayer coupling
+g_0=0.02 # interlayer coupling energy scale
+offsetlayers=0.0 # offsets the second layer from the rotation center
+a=1.0 ##lattice spacing (Cu-O square lattice) - unit length
+d=2.22 ##interlayer distance - in units of a
+interlayer_closest_neighbors=300 #pick something large - takes at least 10 closest neighbors. but we keep only ones within the max distance defined in the next line
+max_interlayer_in_plane=7.8 #max in_plane_interlayer distance - in units of a - lattice spacing.
+
+##################################################################
+##################################################################
+######################### M E T H O D S ##########################
+##################################################################
+##################################################################
+
+plot_op_iterations = True # visual for iterations and tracking convergence.
+# it shows the value of each order parameter living in bonds between
+# sites (blue: real part and red: imaginary part). For each iteration
+# these values are plotted and when dots stop moving we know that 
+# iterations have converged.
+# code will also print a metric "diff" to show the difference between
+# iterations, this should ideally be of the order 1e-10 or smaller.
+
+saveresults=True  # saves self consistent calculation results in disk.
+plot_hop_map=False # visualizes the hoppings in the tight binding model.
+M=40 # specifies the BZ mesh - (M x M k-point grid) 
+USEPREVCALCS=True # if results from earlier calculation has been saved, 
+                  # code will load these insted of the ansatz - allows
+                  # more iterations.
+parallel= True    # k-sums in the gap equation can be done in parallel
+localcpus=7       # specify the number of cores to be used for parallel calculation.
+keeplayer1real=True # fixes the complex phase of order parameters along 
+                    # the x direction in layer 1 - chooses a gauge.
+mixing = 0.7      # mixing between the current and previous iteration to
+                  # improve convergence. 
+total_iterations=1000   # total number of iterations (recommended 1000)
+numericalaccuracy = 1e-12 # stops the iterations if this is reached before
+                  # doing "ti" iterations.
+
+##################################################################
+##################################################################
+
 np.seterr(over="ignore")
 os.environ["OMP_NUM_THREADS"] = "1"
+
+
 if ONCLUSTER:
     CPUCOUNT= int(sys.argv[6])
 else:
-    CPUCOUNT=7
-parallel= True
+    CPUCOUNT=localcpus
 
-Temperature=0.01
-vec=[1,2]  #[0,1] for no twist
-M=40 #BZsize x BZsize k-mesh
-
-t=.153
-tprime=-0.45*t
-mu=-1.3*t
-V=0.146
-g_0=0.04
 kB=8.617e-5
+ti=total_iterations
+TBparameters = mu,t,tprime,g_0
 
-t1=time.time()
 if ONCLUSTER:
     g_0=np.round(float(sys.argv[1]),4)
     M=int(sys.argv[4])
     vec[0]=int(sys.argv[2])
     vec[1]=int(sys.argv[3])
     mu=np.round(float(sys.argv[7]),4)*t
-offsetamount=0.0  ## OFFSET - TRANSLATING THE TOP LAYER. VALUES BETWEEN 0-1
-
+    
+offsetamount=offsetlayers  ## OFFSET - TRANSLATING THE TOP LAYER. VALUES BETWEEN 0-1
 ## ansatz phase
 extrapolate=True
-phi=np.pi*0.1 #phase between two layers.
+phi=np.pi*-0.4 #phase between two layers.
 #phi=np.pi*-0.4 #phase between two layers.
 
-a=1.0 ##lattice spacing
-d=2.22 ##interlayer distance
-interlayer_closest_neighbors=300 #pick something large - takes at least 10 closest neighbors. but we keep only ones within the max distance defined in the next line
-max_interlayer_in_plane=7.8 #max in_plane_interlayer distance - in units of a - lattice spacing.
 deltamaxfactor=4 ### Delta_max = 4*Delta_x (or Delta_y)
-### generate hoppings here:
-plot_hop_map=False
 
-numericalaccuracy = 1e-20
-keeplayer1real=True
-mixing = 0.8
-ti=30
+
 if ONCLUSTER: ti=int(sys.argv[5])
 
 ### ANSATZ PARAMETERS ### 
@@ -81,77 +117,7 @@ Delta_y2=-1.0*phase*Delta_ansatz
 
 savename="twist"+str(vec[0])+"-"+str(vec[1])+"_g0_"+str(np.round(g_0,4))+"_mu_"+str(np.round(mu/t,4))+"t_M_"+str(M)
 
-
-def diag_H_BdG(kvec,basissize,unitcellsize,intralayerhops,hops12,g0,OPs,hops11,hops22):
-    ''' constructs the hamiltonian '''
-    ''' if solve=False, returns H. Else, returns evals,P,Pdag such that PdagHP = evals'''
-    ''' takes k-vector array and list of Deltas for each hopping - with the order of hopping terms '''
-    kx,ky=kvec[:,0],kvec[:,1]
-    H=np.zeros((len(kvec),basissize,basissize), dtype="complex")
-    muterm=np.zeros((basissize))
-    muterm[::2] = -1
-    muterm[1::2] = 1
-    
-    muterm = np.diag(mu*muterm)
-    H=np.array(H+muterm)
-        
-    for hop_index in range(len(intralayerhops)):
-        hop=intralayerhops[hop_index]
-        m,n=hop[0],hop[1]
-        Gx=hop[3][0]*unitcellsize
-        Gy=hop[3][1]*unitcellsize
-        kdotG=kx*Gx+ky*Gy
-        
-        ## KINETIC TERM - we are constructing only the upper diagonal.
-        t1=-1.0*t*np.exp(-1.0j*(kdotG))
-        t2=1.0*t*np.exp(-1.0j*(kdotG))
-        H[:,2*m,2*n]+=t1
-        H[:,2*m+1,2*n+1]+=t2
-        Delta_bond=OPs[hop_index]
-        d1=Delta_bond*np.exp(-1.0j*(kdotG))
-        d2=np.conjugate(Delta_bond)*np.exp(-1.0j*(kdotG))
-        H[:,2*m,2*n+1]+=d1
-        H[:,2*m+1,2*n]+=d2
-        ### must add C.C. for [0,1] is special, Hamiltonian can not be constructed only on the upper diagonal.
-        ### can comment them out for twisted case but let's keep them to be safe.
-        H[:,2*n,2*m]+=np.conjugate(t1)
-        H[:,2*n+1,2*m+1]+=np.conjugate(t2)
-        H[:,2*n+1,2*m]+=np.conjugate(d1)
-        H[:,2*n,2*m+1]+=np.conjugate(d2)
-
-
-    ## INTERLAYER HOPPINGS - closest neighbour.
-    for hop in np.array(hops12, dtype=object):
-        m,n=hop[0],hop[1]
-        Gx=hop[3][0]*unitcellsize
-        Gy=hop[3][1]*unitcellsize
-        kdotG=kx*Gx+ky*Gy
-        g = g0*hop[2]
-        H[:,2*m,2*n]+= g*np.exp(-1.0j*(kdotG))
-        H[:,2*m+1,2*n+1]+= -1.0*g*np.exp(-1.0j*(kdotG)) 
-        H[:,2*n,2*m]+= np.conjugate(g*np.exp(-1.0j*(kdotG)))
-        H[:,2*n+1,2*m+1]+= np.conjugate(-1.0*g*np.exp(-1.0j*(kdotG)))
-        
-        
-    ## NEXT NEAREST NEIGHBORS
-    NNNhops=hops11+hops22
-    for hop in np.array(NNNhops, dtype=object):
-        m,n=hop[0],hop[1]
-        Gx=hop[3][0]*unitcellsize
-        Gy=hop[3][1]*unitcellsize
-        kdotG=kx*Gx+ky*Gy
-        t1=-1.0*tprime*np.exp(-1.0j*(kdotG))
-        t2=1.0*tprime*np.exp(-1.0j*(kdotG))
-        H[:,2*m,2*n]+=t1
-        H[:,2*m+1,2*n+1]+=t2       
-        H[:,2*n,2*m]+=np.conjugate(t1)
-        H[:,2*n+1,2*m+1]+=np.conjugate(t2)
-
-    return H
-
-
-
- ### INITIALIZE THE BZ -
+### SELF CONSISTENT MEAN FIELD TREATMENT
 
 def init(T,g0,total_iterations,deltas="useansatz",vec=[0,1],M_mesh=50):
     global intralayerhops,hops12,hops11,hops22,savename,unitcellsize,basissize,oneDk,kx,ky,H0CREATED,Hcreatedonce
@@ -191,17 +157,18 @@ def init(T,g0,total_iterations,deltas="useansatz",vec=[0,1],M_mesh=50):
     iteration=0
     while iteration < total_iterations and max(realdiff,imagdiff)>numericalaccuracy :
         ## this part plots to check the order parameters as we iterate
-        '''
-        plt.figure(999)
-        palpha=1-np.exp(-.1*iteration/total_iterations)
-        plt.plot(deltas.real,'.',color="blue",alpha=palpha)
-        plt.plot(deltas.imag,'.',color="red",alpha=palpha)
-        '''
-        
+        if plot_op_iterations:
+            oplist=np.array(intralayerhops)[:,2]
+            plt.figure(1000)
+            palpha=1-np.exp(-.1*iteration/total_iterations)
+            plt.plot(deltas.real,'.',color="blue",alpha=palpha)
+            plt.plot(deltas.imag,'.',color="red",alpha=palpha)
+            plt.xticks(ticks=np.arange(len(oplist)),labels=oplist)
+            
         if parallel: 
             def para_diag(index,returndict):
                 dkvecs_slice=dkvecs[index[0]:index[1]+1]
-                H=diag_H_BdG(dkvecs_slice,basissize,unitcellsize,intralayerhops,hops12,g_0,deltas,hops11,hops22)
+                H=diag_H_BdG(dkvecs_slice,basissize,unitcellsize,intralayerhops,hops12,deltas,hops11,hops22,TBparameters)
                 evals,evecs=LA.eigh(H,UPLO="U")
                 P=evecs
                 Pdag=np.conjugate(evecs.transpose(0,2,1))
@@ -274,7 +241,7 @@ def init(T,g0,total_iterations,deltas="useansatz",vec=[0,1],M_mesh=50):
             #print ("diagonalize:"+str(t2-t1))
         else:
     
-            H=diag_H_BdG(dkvecs,basissize,unitcellsize,intralayerhops,hops12,g0,deltas,hops11,hops22)
+            H=diag_H_BdG(dkvecs,basissize,unitcellsize,intralayerhops,hops12,deltas,hops11,hops22,TBparameters)
             
             evals,evecs=LA.eigh(H,UPLO="U")
             
@@ -319,34 +286,34 @@ def init(T,g0,total_iterations,deltas="useansatz",vec=[0,1],M_mesh=50):
         
         if basissize <50:
             if iteration %10 == 0:
-                file = open(savename+"/"+savename+".txt","a+") 
                 pstring="%"+str(np.round(iteration/total_iterations*100,1))+"diff: "+str(realdiff)
                 print (pstring)
-                file.write(pstring+"\r")
-                file.close()
+                if saveresults:
+                    file = open(savename+"/"+savename+".txt","a+") 
+                    file.write(pstring+"\r")
+                    file.close()
         if basissize >= 50:
-            file = open(savename+"/"+savename+".txt","a+") 
             pstring="%"+str(np.round(iteration/total_iterations*100,1))+"diff: "+str(realdiff)
             print (pstring)
-            file.write(pstring+"\r")
-            file.close()
-        
+            if saveresults:
+                file = open(savename+"/"+savename+".txt","a+") 
+                file.write(pstring+"\r")
+                file.close()
+            
         iteration+=1
     
-    '''
-    H=diag_H_BdG(dkvecs,basissize,unitcellsize,intralayerhops,hops12,g0,deltas)
-    evals=LA.eigvalsh(H,UPLO="U")
-    lb=evals[:,basissize//2]
-    '''
+  
     finaldiff=np.sqrt(realdiff**2+imagdiff**2)    
 
     '''
-    plt.figure()'Pastel1', 'Pastel2', 'Paired', 'Accent',
-                        'Dark2', 'Set1', 'Set2', 'Set3',
-                        'tab10', 'tab20', 'tab20b', 'tab20c'
+
+    lb=evals[:,basissize//2]
+
     plt.plot(evals[:,basissize//2])
     '''
     '''
+    H=diag_H_BdG(dkvecs,basissize,unitcellsize,intralayerhops,hops12,g0,deltas)
+    evals=LA.eigvalsh(H,UPLO="U")
     evalsplot=evals.reshape(M,M,basissize)
     #evalsplot=evals,reshape(BZsize,BZsize,basissize)
     ## contour plot of one of the lower bands.
@@ -359,27 +326,85 @@ def init(T,g0,total_iterations,deltas="useansatz",vec=[0,1],M_mesh=50):
     ha.plot_surface(kx, ky, evalsplot[:,:,basissize//2])  
     ha.plot_surface(kx, ky, evalsplot[:,:,basissize//2-1]) 
     '''
-    
+    if saveresults:
+        np.save(savename+"/deltas",deltas)
+        print ("saved order parameters in disk")
     return deltas,finaldiff
 
 
 currentdeltas=[]
-
+T=Temperature*kB
     
 
 if not os.path.exists(savename):
     os.mkdir(savename)
     print("Directory " , savename ,  " Created ")
-else:
-    print("Directory " , savename ,  " already exists")
-    if USEPREVCALCS:
-        if os.path.exists(savename+"/deltas.npy"):
-            print ("prev .deltas file found!")
-            currentdeltas=np.load(savename+"/deltas.npy")
-            
-T=Temperature*kB
+    print("using d-wave type ansatz")
+    print ("Now running "+str(ti)+ " iterations:")
+    currentdeltas,diff=init(T,total_iterations=ti,g0=g_0,M_mesh=M,deltas=currentdeltas,vec=vec)
 
-currentdeltas,diff=init(T,total_iterations=ti,g0=g_0,M_mesh=M,deltas=currentdeltas,vec=vec)
+else:
+    if os.path.exists(savename+"/deltas.npy"):
+        print ("Previous calculation has been found!")
+        print("directory: /"+savename ,)
+    if USEPREVCALCS:
+        print ("loading the existing result for order parameters.")
+        currentdeltas=np.load(savename+"/deltas.npy")
+        runmore=input("Should we run more iterations? [Y/N]")
+        if runmore in ["Y","y","yes","YES"]:
+            print ("Now running "+str(ti)+ " iterations:")
+            currentdeltas,diff=init(T,total_iterations=ti,g0=g_0,M_mesh=M,deltas=currentdeltas,vec=vec)
+            
+    else:
+        print ("But d-wave type ansatz will be used instead. \nSet USEPREVCALCS=True in METHODS to load existing data")
+        print ("Now running "+str(ti)+ " iterations:")
+        currentdeltas,diff=init(T,total_iterations=ti,g0=g_0,M_mesh=M,deltas=currentdeltas,vec=vec)
+
+           
+def ComputeMinGap():
+    mingap=functions.minimum_gap(M,CPUCOUNT,currentdeltas,diag_H_BdG,vec,intralayerhops,hops12,hops11,hops22,TBparameters)
+    print ("Minimum gap : "+str(np.round(mingap*1000,5))+ "meV")
+
+def ComputeChern(chern_BZsize):
+    unitcellsize=np.sqrt(vec[0]**2+vec[1]**2) ## size of the UC in terms of lattice spacing "a".
+    basissize=4*(vec[0]**2+vec[1]**2) #2x2 block for each site - dimensions of the basis.
+    oneDk=((np.arange(chern_BZsize)/chern_BZsize)-0.5)*2*np.pi/unitcellsize 
+    kx, ky = np.meshgrid(oneDk,oneDk)
+    kvecs=np.column_stack((kx.flatten(),ky.flatten())) ## combine kvecs into an array.
+    dk=np.abs(oneDk[1]-oneDk[0])
+    H=diag_H_BdG(kvecs,basissize,unitcellsize,intralayerhops,hops12,currentdeltas,hops11,hops22,TBparameters)
+    chernnumbercomputed=ChernNumber(H,dk)
+    print ("Chern Number : "+str(np.round(chernnumbercomputed,5)))
+            
+    
+    
+def PlotSpectrum(spectrum_BZsize,plottype):
+    unitcellsize=np.sqrt(vec[0]**2+vec[1]**2) ## size of the UC in terms of lattice spacing "a".
+    basissize=4*(vec[0]**2+vec[1]**2) #2x2 block for each site - dimensions of the basis.
+    oneDk=((np.arange(spectrum_BZsize)/spectrum_BZsize)-0.5)*2*np.pi/unitcellsize 
+    kx, ky = np.meshgrid(oneDk,oneDk)
+    kvecs=np.column_stack((kx.flatten(),ky.flatten())) ## combine kvecs into an array.
+    H=diag_H_BdG(kvecs,basissize,unitcellsize,intralayerhops,hops12,currentdeltas,hops11,hops22,TBparameters)
+    evals=LA.eigvalsh(H,UPLO="U")
+    evalsplot=evals.reshape(spectrum_BZsize,spectrum_BZsize,basissize)
+    #evalsplot=evals,reshape(BZsize,BZsize,basissize)
+    ## contour plot of one of the lower bands.
+    if plottype == "2D":
+        plt.figure()
+        cmap2 = plt.get_cmap('inferno')
+        plt.pcolormesh(kx, ky, -1.0*evalsplot[:,:,basissize//2-1], cmap=cmap2)
+        plt.colorbar()
+    if plottype == "3D":
+        from mpl_toolkits.mplot3d import Axes3D    
+        hf = plt.figure()
+        ha = hf.add_subplot(111, projection='3d')
+        ha.plot_surface(kx, ky, evalsplot[:,:,basissize//2])  
+        ha.plot_surface(kx, ky, evalsplot[:,:,basissize//2-1])     
+
+'''
+
+
+
 delta1x,delta1y,delta2x,delta2y=functions.getdeltas(intralayerhops,currentdeltas)
 
 np.save(savename+"/deltas",currentdeltas)
@@ -391,10 +416,8 @@ delta1x,delta1y,delta2x,delta2y=functions.getdeltas(intralayerhops,currentdeltas
 
 print (functions.getdeltas(intralayerhops,currentdeltas))
 
-t2=time.time()
 
-print (t2-t1)
-'''
+
 DATA={}
 DATA["ChernNumber"]=BC
 DATA["Ts"]=T

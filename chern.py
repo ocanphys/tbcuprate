@@ -23,7 +23,7 @@ def gradientofH(H,dk):
     H_grad_y=np.reshape(gradHy,(lenk,basissize,basissize)) ##grad_y
     del gradHy
     gc.collect()
-    print ("gradient is done.")
+    print ("gradient of H is done.")
     return H_grad_x,H_grad_y
 
 
@@ -34,6 +34,7 @@ def ChernNumber(H,dk):
     basissize=np.shape(H)[1]
     del H
     gc.collect()
+    print ("now summing over eigenstates.")
     
     def splitindices(chunknumber):
         index=np.arange(len(evals))

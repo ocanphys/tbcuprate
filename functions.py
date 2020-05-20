@@ -23,7 +23,7 @@ from itertools import cycle
     plt.pcolormesh(kx2, ky2, lowestband, cmap=cmap2,norm=norm)
 '''
 
-def minimum_gap(M_finer,CPUCOUNT,deltas,diag_H_BdG,vec,g_0,intralayerhops,hops12,hops11,hops22):
+def minimum_gap(M_finer,CPUCOUNT,deltas,diag_H_BdG,vec,intralayerhops,hops12,hops11,hops22,TBparameters):
 
     unitcellsize=np.sqrt(vec[0]**2+vec[1]**2) ## size of the UC in terms of lattice spacing "a".
     basissize=4*(vec[0]**2+vec[1]**2) #2x2 block for each site - dimensions of the basis.
@@ -41,7 +41,7 @@ def minimum_gap(M_finer,CPUCOUNT,deltas,diag_H_BdG,vec,g_0,intralayerhops,hops12
 
         def para_diag(index,returndict):
             dkvecs_slice=kvecs_finer[index[0]:index[1]+1]
-            H=diag_H_BdG(dkvecs_slice,basissize,unitcellsize,intralayerhops,hops12,g_0,deltas,hops11,hops22)
+            H=diag_H_BdG(dkvecs_slice,basissize,unitcellsize,intralayerhops,hops12,deltas,hops11,hops22,TBparameters)
             evals=LA.eigvalsh(H,UPLO="U")
             min_index=np.argmin(evals[:,basissize//2])
             min_value=evals[min_index,basissize//2]

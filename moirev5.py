@@ -318,9 +318,8 @@ def generate(a,d,vec,interlayerNNnumber,interlayerNNdistance,offsetamount=0.0,pl
                  return key 
         return "key doesn't exist"
                
-    def plothopmap(hopstoplot):
+    def plothopmap(hopstoplot,plottitle):
         fig=plt.figure()
-
         plotbase(fig)
         
         for hop in hopstoplot:
@@ -358,16 +357,19 @@ def generate(a,d,vec,interlayerNNnumber,interlayerNNdistance,offsetamount=0.0,pl
                     plt.arrow(depx,depy,dx,dy,width=normalwidth,length_includes_head=True,alpha=0.2)
         plt.xlim(-0.2*uc_size_x,1.2*uc_size_x)
         plt.ylim(-0.2*uc_size_y,1.2*uc_size_y)
+        plt.title(plottitle)
 
     if plothoppingmaps:
-        plothopmap(hops1)
-        plothopmap(hops2)
-        plothopmap(hops12)
+        plothopmap(hops1,"NN terms, layer 1")
+        plothopmap(hops2,"NN terms, layer 2")
+        plothopmap(hops11,"NNN terms, layer 1")
+        plothopmap(hops22,"NNN terms, layer 2")
+        plothopmap(hops12,"interlayer terms, layer 1-> 2")
 
     return hops1,hops2,hops12,hops11,hops22
 
 
-hops1,hops2,hops12,hops11,hops22 = generate(a=1.0,d=2.22,vec=[1,2],interlayerNNnumber=10,interlayerNNdistance=7.8,offsetamount=0,plothoppingmaps=True,rho=0.39,nx=1,ny=1)
+#hops1,hops2,hops12,hops11,hops22 = generate(a=1.0,d=2.22,vec=[1,2],interlayerNNnumber=10,interlayerNNdistance=7.8,offsetamount=0,plothoppingmaps=True,rho=0.39,nx=1,ny=1)
 
 
 
