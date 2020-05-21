@@ -11,8 +11,8 @@ from numpy import linalg as LA
 from functions import gradientofH,nF
 import itertools 
 
-def compute(omega,T,u_x,u_y,evals):
-    epsilon = 0.01 ## small epsilon.
+def compute(omega,T,u_x,u_y,evals,epsilon):
+    #epsilon = 0.01 ## small epsilon.
     basissize=np.shape(evals)[1]
     nFspectrum=nF(evals,T) 
     perms = itertools.product(np.arange(0,basissize),np.arange(0,basissize))
@@ -24,7 +24,7 @@ def compute(omega,T,u_x,u_y,evals):
     absum=sum(np.einsum('kab,kba,kab->k',u_x,u_y,f_ab))
     return 1.0j*absum #in units of e^2
     
-def sigma_H(H0,H,dk,T,freq):
+def sigma_H(H0,H,dk,T,freq,epsilon):
     
     v_x,v_y=gradientofH(H0,dk) ## gradient of the normal part
     evals,evecs=LA.eigh(H,UPLO="U")          
@@ -39,7 +39,7 @@ def sigma_H(H0,H,dk,T,freq):
     i=0
     for omega in freq:
         print (str((i*1.0/total_frequency_number)*100)+"%")
-        res=compute(omega,T,u_x,u_y,evals)
+        res=compute(omega,T,u_x,u_y,evals,epsilon)
         conductance.append(res)
         i+=1
     return np.array(conductance)

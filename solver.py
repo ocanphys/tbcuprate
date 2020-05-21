@@ -152,14 +152,14 @@ savename="twist"+str(vec[0])+"-"+str(vec[1])+"_g0_"+str(np.round(g_0,4))+"_mu_"+
 
 
 ### GENERATE HOPPINGS
-if 'intralayerhops' not in globals():
-    print ("generating hopping terms..")
-    hops1,hops2,hops12,hops11,hops22=generate(a,d,vec,interlayer_closest_neighbors,max_interlayer_in_plane,offsetamount,plot_hop_map)
-    hops1=updiag(hops1) ##put all hoppings on the uppertriangular H
-    hops2=updiag(hops2) ##same for other layer
-    hops11=updiag(hops11) ## next nearest neighbors
-    hops22=updiag(hops22) ## next nearest neighbors
-    intralayerhops=hops1+hops2 #combine the two lists.
+
+print ("generating hopping terms..")
+hops1,hops2,hops12,hops11,hops22=generate(a,d,vec,interlayer_closest_neighbors,max_interlayer_in_plane,offsetamount,plot_hop_map)
+hops1=updiag(hops1) ##put all hoppings on the uppertriangular H
+hops2=updiag(hops2) ##same for other layer
+hops11=updiag(hops11) ## next nearest neighbors
+hops22=updiag(hops22) ## next nearest neighbors
+intralayerhops=hops1+hops2 #combine the two lists.
 
 ### SELF CONSISTENT MEAN FIELD TREATMENT
 def init(T,g0,total_iterations,deltas="useansatz",vec=[0,1],M_mesh=50):
@@ -436,10 +436,11 @@ def PlotSpectrum(spectrum_BZsize,plottype):
         ha = hf.add_subplot(111, projection='3d')
         ha.plot_surface(kx, ky, evalsplot[:,:,basissize//2])  
         ha.plot_surface(kx, ky, evalsplot[:,:,basissize//2-1])     
-
-
-def ComputeKerr(BZsize):
-    freq=np.arange(0,1.0,0.01)
+colornow="C0"
+cindex=0
+def ComputeKerr(BZsize,epsilon):
+    global cindex,colornow
+    freq=np.arange(0,0.5,0.01)
     unitcellsize=np.sqrt(vec[0]**2+vec[1]**2) ## size of the UC in terms of lattice spacing "a".
     basissize=4*(vec[0]**2+vec[1]**2) #2x2 block for each site - dimensions of the basis.
     oneDk=((np.arange(BZsize)/BZsize)-0.5)*2*np.pi/unitcellsize 
@@ -450,7 +451,13 @@ def ComputeKerr(BZsize):
     H0=diag_H_BdG(kvecs,basissize,unitcellsize,intralayerhops,hops12,currentdeltas*0.0,hops11,hops22,TBparameters)
     ### and the Hamiltonian
     H=diag_H_BdG(kvecs,basissize,unitcellsize,intralayerhops,hops12,currentdeltas,hops11,hops22,TBparameters)
-    return freq,sigma_H(H0,H,dk,T,freq)
+    sigmaH=sigma_H(H0,H,dk,T,freq,epsilon)*(dk**2)
+    plt.plot(freq,sigmaH.real,linestyle="solid",color=colornow,label="Re_"+str(epsilon))
+    plt.plot(freq,sigmaH.imag,linestyle="dashed",color=colornow,label="Re_"+str(epsilon))
+    cindex=cindex+1
+    colornow="C"+str(int(cindex))
+    plt.legend()
+    print ("dk^2 = "+str(dk**2))
 '''
 
 
