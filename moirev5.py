@@ -369,7 +369,7 @@ def generate(a,d,vec,interlayerNNnumber,interlayerNNdistance,offsetamount=0.0,pl
     return hops1,hops2,hops12,hops11,hops22
 
 
-hops1,hops2,hops12,hops11,hops22 = generate(a=1.0,d=2.22,vec=[0,1],interlayerNNnumber=10,interlayerNNdistance=7.8,offsetamount=0,plothoppingmaps=True,rho=0.39,nx=1,ny=1)
+#hops1,hops2,hops12,hops11,hops22 = generate(a=1.0,d=2.22,vec=[0,1],interlayerNNnumber=10,interlayerNNdistance=7.8,offsetamount=0,plothoppingmaps=True,rho=0.39,nx=1,ny=1)
 
 
 

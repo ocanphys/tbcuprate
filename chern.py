@@ -10,7 +10,8 @@ import itertools
 import numpy as np
 import gc
 from numpy import linalg as LA
-
+from functions import gradientofH
+'''
 def gradientofH(H,dk):
     basissize=np.shape(H)[1]
     lenk=np.shape(H)[0]
@@ -26,7 +27,7 @@ def gradientofH(H,dk):
     print ("gradient of H is done.")
     return H_grad_x,H_grad_y
 
-
+'''
 
 def ChernNumber(H,dk):
     H_grad_x,H_grad_y=gradientofH(H,dk)
