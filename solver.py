@@ -17,6 +17,7 @@ import os,sys
 from moirev5 import generate,updiag
 from chern import ChernNumber
 from buildHBdG import diag_H_BdG
+from kerreffect import sigma_H
 import functions
 import multiprocessing
 import gc
@@ -149,17 +150,20 @@ Delta_y2=-1.0*phase*Delta_ansatz
 
 savename="twist"+str(vec[0])+"-"+str(vec[1])+"_g0_"+str(np.round(g_0,4))+"_mu_"+str(np.round(mu/t,4))+"t_M_"+str(M)
 
-### SELF CONSISTENT MEAN FIELD TREATMENT
 
-def init(T,g0,total_iterations,deltas="useansatz",vec=[0,1],M_mesh=50):
-    global intralayerhops,hops12,hops11,hops22,savename,unitcellsize,basissize,oneDk,kx,ky,H0CREATED,Hcreatedonce
-    ### GENERATE HOPPINGS
+### GENERATE HOPPINGS
+if 'intralayerhops' not in globals():
+    print ("generating hopping terms..")
     hops1,hops2,hops12,hops11,hops22=generate(a,d,vec,interlayer_closest_neighbors,max_interlayer_in_plane,offsetamount,plot_hop_map)
     hops1=updiag(hops1) ##put all hoppings on the uppertriangular H
     hops2=updiag(hops2) ##same for other layer
     hops11=updiag(hops11) ## next nearest neighbors
     hops22=updiag(hops22) ## next nearest neighbors
     intralayerhops=hops1+hops2 #combine the two lists.
+
+### SELF CONSISTENT MEAN FIELD TREATMENT
+def init(T,g0,total_iterations,deltas="useansatz",vec=[0,1],M_mesh=50):
+    global intralayerhops,hops12,hops11,hops22,savename,unitcellsize,basissize,oneDk,kx,ky,H0CREATED,Hcreatedonce
 
     ### INITIALIZE THE BZ -
     BZsize=M_mesh ## M x M BZ k-mesh
@@ -433,6 +437,20 @@ def PlotSpectrum(spectrum_BZsize,plottype):
         ha.plot_surface(kx, ky, evalsplot[:,:,basissize//2])  
         ha.plot_surface(kx, ky, evalsplot[:,:,basissize//2-1])     
 
+
+def ComputeKerr(BZsize):
+    freq=np.arange(0,1.0,0.01)
+    unitcellsize=np.sqrt(vec[0]**2+vec[1]**2) ## size of the UC in terms of lattice spacing "a".
+    basissize=4*(vec[0]**2+vec[1]**2) #2x2 block for each site - dimensions of the basis.
+    oneDk=((np.arange(BZsize)/BZsize)-0.5)*2*np.pi/unitcellsize 
+    dk=np.abs(oneDk[1]-oneDk[0])
+    kx, ky = np.meshgrid(oneDk,oneDk)
+    kvecs=np.column_stack((kx.flatten(),ky.flatten())) ## combine kvecs into an array.
+    ### normal part of the Hamiltonial - we set order parameters to zero.
+    H0=diag_H_BdG(kvecs,basissize,unitcellsize,intralayerhops,hops12,currentdeltas*0.0,hops11,hops22,TBparameters)
+    ### and the Hamiltonian
+    H=diag_H_BdG(kvecs,basissize,unitcellsize,intralayerhops,hops12,currentdeltas,hops11,hops22,TBparameters)
+    return freq,sigma_H(H0,H,dk,T,freq)
 '''
 
 

@@ -13,6 +13,7 @@ import matplotlib
 import sys,os
 import multiprocessing
 from itertools import cycle
+import gc
 
 '''
     evalsplot=evals.reshape(M_finer,M_finer,basissize)
@@ -352,6 +353,21 @@ def plotphase(hops):
     plt.ylim(-0.05,0.05)
     plt.legend()
     
+
+def gradientofH(H,dk):
+    basissize=np.shape(H)[1]
+    lenk=np.shape(H)[0]
+    meshsize=int(np.sqrt(lenk))
+    Hsq=np.reshape(H,(meshsize,meshsize,basissize,basissize))
+    gradHx=np.gradient(Hsq,dk,axis=1)
+    H_grad_x=np.reshape(gradHx,(lenk,basissize,basissize)) ##grad_x
+    del gradHx
+    gradHy=np.gradient(Hsq,dk,axis=0)
+    H_grad_y=np.reshape(gradHy,(lenk,basissize,basissize)) ##grad_y
+    del gradHy
+    gc.collect()
+    print ("gradient of H is done.")
+    return H_grad_x,H_grad_y
 
 
 ####
