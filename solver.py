@@ -56,7 +56,7 @@ import time
 ##################################################################
 ##################################################################
 
-Temperature=0.01 # Kelvins
+Temperature=0.0001 # Kelvins
 vec=[1,2]  #[0,1] for no twist
 t=.153 # NN hopping in plane
 tprime=-0.45*t # NNN hopping in plane
@@ -101,8 +101,8 @@ keeplayer1real=True # fixes the complex phase of order parameters along
                     # the x direction in layer 1 - chooses a gauge.
 mixing = 0.7      # mixing between the current and previous iteration to
                   # improve convergence. 
-total_iterations=1000   # total number of iterations (recommended 1000)
-numericalaccuracy = 1e-12 # stops the iterations if this is reached before
+total_iterations=100   # total number of iterations (recommended 1000)
+numericalaccuracy = 1e-15 # stops the iterations if this is reached before
                   # doing "ti" iterations.
 
 ##################################################################
@@ -131,7 +131,7 @@ if ONCLUSTER:
 offsetamount=offsetlayers  ## OFFSET - TRANSLATING THE TOP LAYER. VALUES BETWEEN 0-1
 ## ansatz phase
 extrapolate=True
-phi=np.pi*-0.4 #phase between two layers.
+phi=np.pi*-0.0 #phase between two layers.
 #phi=np.pi*-0.4 #phase between two layers.
 
 deltamaxfactor=4 ### Delta_max = 4*Delta_x (or Delta_y)
@@ -436,11 +436,14 @@ def PlotSpectrum(spectrum_BZsize,plottype):
         ha = hf.add_subplot(111, projection='3d')
         ha.plot_surface(kx, ky, evalsplot[:,:,basissize//2])  
         ha.plot_surface(kx, ky, evalsplot[:,:,basissize//2-1])     
-colornow="C0"
-cindex=0
+
+
 def ComputeKerr(BZsize,epsilon):
-    global cindex,colornow
-    freq=np.arange(0,0.5,0.01)
+    savetag="ImKerr"
+    global cindex,colornow,H,H0,dk
+    #colornow=input("plot_color? ")
+    colornow="blue"
+    freq=np.arange(0.00001,0.01,0.00005)
     unitcellsize=np.sqrt(vec[0]**2+vec[1]**2) ## size of the UC in terms of lattice spacing "a".
     basissize=4*(vec[0]**2+vec[1]**2) #2x2 block for each site - dimensions of the basis.
     oneDk=((np.arange(BZsize)/BZsize)-0.5)*2*np.pi/unitcellsize 
@@ -452,14 +455,18 @@ def ComputeKerr(BZsize,epsilon):
     ### and the Hamiltonian
     H=diag_H_BdG(kvecs,basissize,unitcellsize,intralayerhops,hops12,currentdeltas,hops11,hops22,TBparameters)
     sigmaH=sigma_H(H0,H,dk,T,freq,epsilon)*(dk**2)
-    plt.plot(freq,sigmaH.real,linestyle="solid",color=colornow,label="Re_"+str(epsilon))
-    plt.plot(freq,sigmaH.imag,linestyle="dashed",color=colornow,label="Re_"+str(epsilon))
-    cindex=cindex+1
-    colornow="C"+str(int(cindex))
+    
+    plt.plot(freq,sigmaH.real,linestyle="solid",color=colornow,label="M="+str(BZsize)+"_Re_$\epsilon$="+str(epsilon))
+    plt.plot(freq,sigmaH.imag,linestyle="dashed",color=colornow,label="M="+str(BZsize)+"_Im_$\epsilon$="+str(epsilon))
+    
     plt.legend()
     print ("dk^2 = "+str(dk**2))
+    savekerrstr=str(BZsize)+"_"+str(epsilon)+"_"+str(savetag)
+    np.save(savename+"/kerr"+savekerrstr,np.array([freq,sigmaH]))
+    return freq,sigmaH
+    
+    
 '''
-
 
 
 delta1x,delta1y,delta2x,delta2y=functions.getdeltas(intralayerhops,currentdeltas)

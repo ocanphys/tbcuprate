@@ -11,18 +11,34 @@ from numpy import linalg as LA
 from functions import gradientofH,nF
 import itertools 
 
+
+
 def compute(omega,T,u_x,u_y,evals,epsilon):
     #epsilon = 0.01 ## small epsilon.
     basissize=np.shape(evals)[1]
     nFspectrum=nF(evals,T) 
     perms = itertools.product(np.arange(0,basissize),np.arange(0,basissize))
-    f_ab=np.zeros((len(evals),basissize,basissize),dtype="complex")
+    fab_fba=np.zeros((len(evals),basissize,basissize),dtype="complex")
     for perm in perms:
         a,b=perm
-        f_ab[:,a,b]=(nFspectrum[:,a]-nFspectrum[:,b])/((omega + 1.0j*epsilon)**2-1.0*(evals[:,a]-evals[:,b])**2)
+        #f_ab[:,a,b]=(nFspectrum[:,a]-nFspectrum[:,b])/((omega + 1.0j*epsilon)**2-1.0*(evals[:,a]-evals[:,b])**2)
+        ##################################################################
+        ##################################################################
+        ##################################################################
+        ##################################################################
+        ##################################################################
+        def f(a,b,omega):
+            omegaE=omega + evals[:,a]-evals[:,b]
+            return (nFspectrum[:,a]-nFspectrum[:,b])*(omegaE-1.0j*epsilon)/(omegaE**2+epsilon**2)
+        fab_fba[:,a,b]=f(a,b,omega)-f(b,a,omega)
+        ##################################################################
+        ##################################################################
+        ##################################################################
+        ##################################################################
+        ##################################################################
     ## sigma_H=ie^2\sum_k (absum)
-    absum=sum(np.einsum('kab,kba,kab->k',u_x,u_y,f_ab))
-    return 1.0j*absum #in units of e^2
+    absum=sum(np.einsum('kab,kba,kab->k',u_x,u_y,fab_fba))
+    return 1.0j*absum/(2*omega) #in units of e^2
     
 def sigma_H(H0,H,dk,T,freq,epsilon):
     
@@ -43,3 +59,5 @@ def sigma_H(H0,H,dk,T,freq,epsilon):
         conductance.append(res)
         i+=1
     return np.array(conductance)
+
+

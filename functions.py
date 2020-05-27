@@ -370,8 +370,23 @@ def gradientofH(H,dk):
     return H_grad_x,H_grad_y
 
 
-####
+'''
+def gradientofHv2(H,dk):
+    basissize=np.shape(H)[1]
+    lenk=np.shape(H)[0]
+    meshsize=int(np.sqrt(lenk))
+    Hsq=np.reshape(H,(meshsize,meshsize,basissize,basissize))
+    Hsq_x=np.roll(Hsq,1,axis=1)
+    Hsq_y=np.roll(Hsq,1,axis=0)
+    H_grad_x=(Hsq_x-Hsq)/dk
+    H_grad_y=(Hsq_y-Hsq)/dk
+    H_grad_x=np.reshape(H_grad_x,(lenk,basissize,basissize))
+    H_grad_y=np.reshape(H_grad_y,(lenk,basissize,basissize))
+    return H_grad_x,H_grad_y
     
+    
+    
+'''
 '''
 
     
