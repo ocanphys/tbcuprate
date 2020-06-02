@@ -41,6 +41,7 @@ def compute(omega,T,u_x,u_y,evals,epsilon):
     return 1.0j*absum/(2*omega) #in units of e^2
     
 def sigma_H(H0,H,dk,T,freq,epsilon):
+    global mingap
     
     v_x,v_y=gradientofH(H0,dk) ## gradient of the normal part
     evals,evecs=LA.eigh(H,UPLO="U")          
@@ -53,11 +54,18 @@ def sigma_H(H0,H,dk,T,freq,epsilon):
     conductance=[]
     total_frequency_number=len(freq)*1.0
     i=0
+
     for omega in freq:
         print (str((i*1.0/total_frequency_number)*100)+"%")
         res=compute(omega,T,u_x,u_y,evals,epsilon)
         conductance.append(res)
         i+=1
-    return np.array(conductance)
+    
+        
+    min_index=np.argmin(evals[:,basissize//2])
+    min_value=evals[min_index,basissize//2]
+    print ("minimum excitation energy:" +str(min_value)+"eV")
+    mingap=min_value
+    return np.array(conductance),min_value
 
 

@@ -18,6 +18,7 @@ from moirev5 import generate,updiag
 from chern import ChernNumber
 from buildHBdG import diag_H_BdG
 from kerreffect import sigma_H
+#from twobandmodel import twobandmodelH
 import functions
 import multiprocessing
 import gc
@@ -63,7 +64,7 @@ tprime=-0.45*t # NNN hopping in plane
 mu=-1.3*t # chemical potential chosen near optimal doping
 V=0.146 # attractive pairing potential, adjusted so that 40meV 
         # maximal gap is obtained when there is no interlayer coupling
-g_0=0.02 # interlayer coupling energy scale
+g_0=0.06 # interlayer coupling energy scale
 offsetlayers=0.0 # offsets the second layer from the rotation center
 a=1.0 ##lattice spacing (Cu-O square lattice) - unit length
 d=2.22 ##interlayer distance - in units of a
@@ -437,13 +438,36 @@ def PlotSpectrum(spectrum_BZsize,plottype):
         ha.plot_surface(kx, ky, evalsplot[:,:,basissize//2])  
         ha.plot_surface(kx, ky, evalsplot[:,:,basissize//2-1])     
 
+'''
+def ComputeKerrTwoBand(BZsize,epsilon):
+    global cindex,colornow,H,H0,dk
+    #colornow=input("plot_color? ")
+    colornow="blue"
+    freq=np.arange(0.00001,0.1,0.001)
+    oneDk=((np.arange(BZsize)/BZsize)-0.5)*2*np.pi 
+    dk=np.abs(oneDk[1]-oneDk[0])
+    ### normal part of the Hamiltonial - we set order parameters to zero.
+        ### normal part of the Hamiltonial - we set order parameters to zero.
+    H0=twobandmodelH(False,TBparameters)
+    ### and the Hamiltonian
+    H=twobandmodelH(True,TBparameters)
+    
+    sigmaH=sigma_H(H0,H,dk,T,freq,epsilon)*(dk**2)
+    
+    plt.plot(freq,sigmaH.real,linestyle="solid",color=colornow,label="M="+str(BZsize)+"_Re_$\epsilon$="+str(epsilon))
+    plt.plot(freq,sigmaH.imag,linestyle="dashed",color=colornow,label="M="+str(BZsize)+"_Im_$\epsilon$="+str(epsilon))
+    
+    plt.legend()
+    print ("dk^2 = "+str(dk**2))
+    return freq,sigmaH
+'''
 
 def ComputeKerr(BZsize,epsilon):
     savetag="ImKerr"
     global cindex,colornow,H,H0,dk
     #colornow=input("plot_color? ")
-    colornow="blue"
-    freq=np.arange(0.00001,0.01,0.00005)
+    colornow="green"
+    freq=np.arange(0.00001,0.03,0.001)
     unitcellsize=np.sqrt(vec[0]**2+vec[1]**2) ## size of the UC in terms of lattice spacing "a".
     basissize=4*(vec[0]**2+vec[1]**2) #2x2 block for each site - dimensions of the basis.
     oneDk=((np.arange(BZsize)/BZsize)-0.5)*2*np.pi/unitcellsize 
@@ -454,11 +478,12 @@ def ComputeKerr(BZsize,epsilon):
     H0=diag_H_BdG(kvecs,basissize,unitcellsize,intralayerhops,hops12,currentdeltas*0.0,hops11,hops22,TBparameters)
     ### and the Hamiltonian
     H=diag_H_BdG(kvecs,basissize,unitcellsize,intralayerhops,hops12,currentdeltas,hops11,hops22,TBparameters)
-    sigmaH=sigma_H(H0,H,dk,T,freq,epsilon)*(dk**2)
-    
+    sigmaH,mingap=sigma_H(H0,H,dk,T,freq,epsilon)
+    sigmaH=sigmaH*(dk**2)
+    #    plt.figure()
     plt.plot(freq,sigmaH.real,linestyle="solid",color=colornow,label="M="+str(BZsize)+"_Re_$\epsilon$="+str(epsilon))
     plt.plot(freq,sigmaH.imag,linestyle="dashed",color=colornow,label="M="+str(BZsize)+"_Im_$\epsilon$="+str(epsilon))
-    
+    plt.axvline(x=2*mingap,linestyle="dotted",alpha=0.5, color=colornow)
     plt.legend()
     print ("dk^2 = "+str(dk**2))
     savekerrstr=str(BZsize)+"_"+str(epsilon)+"_"+str(savetag)
