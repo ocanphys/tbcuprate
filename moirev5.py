@@ -280,7 +280,8 @@ def generate(a,d,vec,interlayerNNnumber,interlayerNNdistance,offsetamount=0.0,pl
     hops12=get_hoppings(12,1)
 
     
-    allhops=np.concatenate((hops1,hops2,hops11,hops22,hops12))
+    #allhops=np.concatenate((hops1,hops2,hops11,hops22,hops12)) 
+    allhops=hops1+hops2+hops11+hops22+hops12
     
     labeldict=hopdict(allhops)
     singlelayerbasissize=(v1**2+v2**2)
