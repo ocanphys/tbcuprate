@@ -132,8 +132,7 @@ if ONCLUSTER:
 offsetamount=offsetlayers  ## OFFSET - TRANSLATING THE TOP LAYER. VALUES BETWEEN 0-1
 ## ansatz phase
 extrapolate=True
-phi=np.pi*-0.0 #phase between two layers.
-#phi=np.pi*-0.4 #phase between two layers.
+phi=np.pi*-0.4 #phase between two layers.
 
 deltamaxfactor=4 ### Delta_max = 4*Delta_x (or Delta_y)
 
